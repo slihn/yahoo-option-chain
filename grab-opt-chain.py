@@ -67,7 +67,7 @@ def get_option_chain(symbol: str, expiry_ms: int=None):
                 continue
 
             # row structure:
-            # 0: Strike STRK_PRC, 1: Contract Name,
+            # 0: Strike, 1: Contract Name,
             # 2: Last, 3: Bid, 4: Ask, 5: LAST, 6: L_BID, 7: L_ASK
             # 5: Change, 6: %Change, 7: Volume
             # 8: Open Interest, 9: Implied Volatility
@@ -76,12 +76,15 @@ def get_option_chain(symbol: str, expiry_ms: int=None):
             data['TRADE_DT'] = time.strftime("%Y%m%d")
 
             ls = len(symbol)
+            symbol2 = symbol
             if symbol[0] == '^':
                 ls -= 1
+                symbol2 = symbol[1:1+ls]
 
             contract = row[1]  # Contract Name
             put_call = contract[ls+6]
-            assert put_call=="P" or put_call== "C", "put_call is not P,C"
+            assert symbol2 == contract[0:ls], "contract prefix is not symbol: %s vs %s" % (symbol2, contract)
+            assert put_call == "P" or put_call == "C", "put_call is not P,C: %s" % put_call
 
             data['EXPR_DT'] = "20%s" % contract[ls:ls+6]
             data['UNDL_PRC'] = price
