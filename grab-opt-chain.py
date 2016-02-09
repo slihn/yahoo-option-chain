@@ -1,8 +1,9 @@
-"Grab option chain data from Yahoo Finance, especially implied volatility"
+"""
+Grab option chain data from Yahoo Finance, especially implied volatility
+"""
 
 from urllib import request
 from lxml import html
-# from lxml import etree
 from time import gmtime, strftime
 import logging
 import sys
@@ -27,6 +28,7 @@ def get_options_menu(symbol: str, dt: int=None):
     #   <div id="options_menu" class="Grid-U options_menu">
     options_menu = quote_table.find(".//div[@id='options_menu']/form")
     # etree.dump(options_menu)
+
     menu = dict()
     for expiry in options_menu.findall(".//option"):
         expiry_ms = int(float(expiry.get("value")))  # epoch time
@@ -56,7 +58,6 @@ def get_option_chain(symbol: str, expiry_ms: int=None):
     for data_table in quote_table.findall(".//table"):
         # etree.dump(data_table)
         for tr in data_table.findall(".//tr"):
-            data = dict()
             row_id = tr.get("data-row")
             if row_id is None:
                 continue
@@ -66,42 +67,49 @@ def get_option_chain(symbol: str, expiry_ms: int=None):
             if not row[1].startswith(symbol.strip('^')):
                 continue
 
-            # row structure:
-            # 0: Strike, 1: Contract Name,
-            # 2: Last, 3: Bid, 4: Ask, 5: LAST, 6: L_BID, 7: L_ASK
-            # 5: Change, 6: %Change, 7: Volume
-            # 8: Open Interest, 9: Implied Volatility
+            out += parse_tr_row(row, row_id, symbol, price)
 
-            data['ROW'] = "%2d" % row_id
-            data['TRADE_DT'] = time.strftime("%Y%m%d")
+    return out
 
-            ls = len(symbol)
-            symbol2 = symbol
-            if symbol[0] == '^':
-                ls -= 1
-                symbol2 = symbol[1:1+ls]
 
-            contract = row[1]  # Contract Name
-            put_call = contract[ls+6]
-            assert symbol2 == contract[0:ls], "contract prefix is not symbol: %s vs %s" % (symbol2, contract)
-            assert put_call == "P" or put_call == "C", "put_call is not P,C: %s" % put_call
+def parse_tr_row(row, row_id, symbol, price):
 
-            data['EXPR_DT'] = "20%s" % contract[ls:ls+6]
-            data['UNDL_PRC'] = price
-            data['PC'] = put_call
-            data['STRK_PRC'] = row[0]
-            data['OPT_SYMBOL'] = contract
-            data['LAST'] = row[2]
-            data['L_BID'] = row[3]
-            data['L_ASK'] = row[4]
-            data['CHANGE'] = row[5]
-            data['PCT_CHANGE'] = "%4.2f" % p2f(row[6])
-            data['VOL'] = row[7]
-            data['OIT'] = row[8]
-            data['IVOL'] = "%4.2f" % p2f(row[9])
+    # row structure:
+    # 0: Strike, 1: Contract Name,
+    # 2: Last, 3: Bid, 4: Ask, 5: LAST, 6: L_BID, 7: L_ASK
+    # 5: Change, 6: %Change, 7: Volume
+    # 8: Open Interest, 9: Implied Volatility
 
-            out += ','.join([data[k] for k in headings()]) + "\n"
+    data = dict()
+    data['ROW'] = "%2d" % row_id
+    data['TRADE_DT'] = time.strftime("%Y%m%d")
 
+    ls = len(symbol)
+    symbol2 = symbol
+    if symbol[0] == '^':
+        ls -= 1
+        symbol2 = symbol[1:1+ls]
+
+    contract = row[1]  # Contract Name
+    put_call = contract[ls+6]
+    assert symbol2 == contract[0:ls], "contract prefix is not symbol: %s vs %s" % (symbol2, contract)
+    assert put_call == "P" or put_call == "C", "put_call is not P,C: %s" % put_call
+
+    data['EXPR_DT'] = "20%s" % contract[ls:ls+6]
+    data['UNDL_PRC'] = price
+    data['PC'] = put_call
+    data['STRK_PRC'] = row[0]
+    data['OPT_SYMBOL'] = contract
+    data['LAST'] = row[2]
+    data['L_BID'] = row[3]
+    data['L_ASK'] = row[4]
+    data['CHANGE'] = row[5]
+    data['PCT_CHANGE'] = "%4.2f" % p2f(row[6])
+    data['VOL'] = row[7]
+    data['OIT'] = row[8]
+    data['IVOL'] = "%4.2f" % p2f(row[9])
+
+    out = ','.join([data[k] for k in headings()]) + "\n"
     return out
 
 
