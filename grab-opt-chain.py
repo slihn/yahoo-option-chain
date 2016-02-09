@@ -48,6 +48,7 @@ def get_option_chain(symbol: str, expiry_ms: int=None):
     # <span id="yfs_l84_^XDE" data-sq="^XDE:value">109.00</span>
     value_elem = tree.find(".//span[@data-sq='%s:value']" % symbol)
     assert symbol in value_elem.get("id"), "Failed to locate price element"
+    symbol2 = symbol.strip('^')
     price = value_elem.text  # UNDL_PRC
 
     # <div id="quote-table">
@@ -64,15 +65,15 @@ def get_option_chain(symbol: str, expiry_ms: int=None):
 
             row_id = int(row_id)
             row = [td.xpath("normalize-space()") for td in tr.findall("./td")]
-            if not row[1].startswith(symbol.strip('^')):
+            if not row[1].startswith(symbol2):
                 continue
 
-            out += parse_tr_row(row, row_id, symbol, price)
+            out += parse_tr_row(row, row_id, symbol2, price)
 
     return out
 
 
-def parse_tr_row(row, row_id, symbol, price):
+def parse_tr_row(row, row_id, symbol2, price):
 
     # row structure:
     # 0: Strike, 1: Contract Name,
@@ -81,20 +82,14 @@ def parse_tr_row(row, row_id, symbol, price):
     # 8: Open Interest, 9: Implied Volatility
 
     data = dict()
-    data['ROW'] = "%2d" % row_id
-    data['TRADE_DT'] = time.strftime("%Y%m%d")
-
-    ls = len(symbol)
-    symbol2 = symbol
-    if symbol[0] == '^':
-        ls -= 1
-        symbol2 = symbol[1:1+ls]
-
+    ls = len(symbol2)
     contract = row[1]  # Contract Name
     put_call = contract[ls+6]
     assert symbol2 == contract[0:ls], "contract prefix is not symbol: %s vs %s" % (symbol2, contract)
     assert put_call == "P" or put_call == "C", "put_call is not P,C: %s" % put_call
 
+    data['ROW'] = "%2d" % row_id
+    data['TRADE_DT'] = time.strftime("%Y%m%d")
     data['EXPR_DT'] = "20%s" % contract[ls:ls+6]
     data['UNDL_PRC'] = price
     data['PC'] = put_call
