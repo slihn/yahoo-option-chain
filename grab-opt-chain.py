@@ -8,6 +8,7 @@ from time import gmtime, strftime
 import logging
 import sys
 import time
+from os import path
 
 
 logger = logging.getLogger(__name__)
@@ -88,7 +89,7 @@ def parse_tr_row(row, row_id, symbol2, price):
     assert symbol2 == contract[0:ls], "contract prefix is not symbol: %s vs %s" % (symbol2, contract)
     assert put_call == "P" or put_call == "C", "put_call is not P,C: %s" % put_call
 
-    data['ROW'] = "%2d" % row_id
+    data['ROW'] = "%d" % row_id
     data['TRADE_DT'] = time.strftime("%Y%m%d")
     data['EXPR_DT'] = "20%s" % contract[ls:ls+6]
     data['UNDL_PRC'] = price
@@ -128,13 +129,22 @@ def fetch_from_yahoo(symbol, expiry_ms):
     return tree
 
 
-def get_xde_data():
+def save_symbol_data(symbol, file):
     out = ','.join(headings()) + "\n"
-    symbol = "^XDE"
     expiry_menu = get_options_menu(symbol)
     for expiry_ms in expiry_menu.keys():
         out += get_option_chain(symbol, expiry_ms)
-    return out
+    file.write(out)
+
+
+def save_symbol_data_by_filename(symbol, filename):
+    msg = "Output to %s" % filename
+    logger.info(msg)
+    print(msg)
+
+    with open(filename, 'w') as f:
+        save_symbol_data(symbol, f)
+        f.close()
 
 
 def headings():
@@ -142,8 +152,37 @@ def headings():
             'OPT_SYMBOL', 'LAST', 'L_BID', 'L_ASK', 'CHANGE', 'PCT_CHANGE', 'VOL', 'OIT', 'IVOL']
 
 
+def usage():
+    print("""grab-opt-chain.py: Grab option chain data from Yahoo Finance
+usage:
+    -h          Help
+    -x dir      Save ^XDE data to a directory
+    symbol      Grab data for a symbol, output to stdout
+    symbol file Grab data for a symbol, save output to file
+    """)
+
+
 # ------------------------------------------
 if __name__ == "__main__":
-    print(get_xde_data())
+    if len(sys.argv) >= 2 and sys.argv[1] == '-h':
+        usage()
+        exit(0)
+
+    symbol_in = "^XDE"
+    if len(sys.argv) >= 3 and sys.argv[1] == '-x':
+        data_dir = sys.argv[2]
+        dt_in = time.strftime("%Y%m%d")
+        filename_in = path.join(data_dir, symbol_in.strip('^')+'-ivol-'+dt_in+".csv")
+        save_symbol_data_by_filename(symbol_in, filename_in)
+        exit(0)
+
+    if len(sys.argv) >= 2:
+        symbol_in = sys.argv[1]
+
+    if len(sys.argv) >= 3:
+        filename_in = sys.argv[2]
+        save_symbol_data_by_filename(symbol_in, filename_in)
+    else:
+        save_symbol_data(symbol_in, sys.stdout)
 
 # end of main
