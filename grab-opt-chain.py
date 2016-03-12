@@ -155,10 +155,11 @@ def headings():
 def usage():
     print("""grab-opt-chain.py: Grab option chain data from Yahoo Finance
 usage:
-    -h          Help
-    -x dir      Save ^XDE data to a directory
-    symbol      Grab data for a symbol, output to stdout
-    symbol file Grab data for a symbol, save output to file
+    -h              Help
+    -x dir          Save ^XDE data to a directory
+    -x dir symbol   Save symbol data to a directory
+    symbol          Grab data for a symbol, output to stdout
+    symbol file     Grab data for a symbol, save output to file
     """)
 
 
@@ -171,6 +172,8 @@ if __name__ == "__main__":
     symbol_in = "^XDE"
     if len(sys.argv) >= 3 and sys.argv[1] == '-x':
         data_dir = sys.argv[2]
+        if len(sys.argv) >= 4:
+            symbol_in = sys.argv[3]
         dt_in = time.strftime("%Y%m%d")
         filename_in = path.join(data_dir, symbol_in.strip('^')+'-ivol-'+dt_in+".csv")
         save_symbol_data_by_filename(symbol_in, filename_in)
