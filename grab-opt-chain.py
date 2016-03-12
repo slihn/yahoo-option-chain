@@ -39,7 +39,7 @@ def get_options_menu(symbol: str, dt: int=None):
         assert expiry_tm_iso == "00:00:00", \
             "Expiration assertion failed: %d %s %s" % (expiry_ms, expiry_dt_iso, expiry_tm_iso)
         menu[expiry_ms] = expiry_dt_iso
-        logger.debug("Expiry %d: %s" % (expiry_ms, expiry_dt_iso))
+        logger.debug("Obtained expiry menu: %d - %s" % (expiry_ms, expiry_dt_iso))
 
     return menu
 
@@ -118,7 +118,7 @@ def fetch_from_yahoo(symbol, expiry_ms):
     if expiry_ms is not None:
         url = url + "&date=" + str(expiry_ms)
 
-    logger.info("Fetch data from %s" % url)
+    logger.info("Fetches data from %s" % url)
     res = request.urlopen(url)
     content = res.read()
     res.close()
@@ -131,10 +131,42 @@ def fetch_from_yahoo(symbol, expiry_ms):
 
 def save_symbol_data(symbol, file):
     out = ','.join(headings()) + "\n"
-    expiry_menu = get_options_menu(symbol)
-    for expiry_ms in expiry_menu.keys():
-        out += get_option_chain(symbol, expiry_ms)
+
+    logger.info("Fetches expiry menu")
+    expiry_menu = None
+    for attempt in range(3):
+        try:
+            expiry_menu = get_options_menu(symbol)
+        except:
+            logger.warn("Attempt %d failed to fetch expiry menu, wait..." % (attempt+1))
+            time.sleep(10)
+        else:
+            break
+    else:
+        logger.error("Failed to fetch expiry menu")
+        exit(1)
+
+    expiry_list = list(expiry_menu.keys())
+    expiry_list.sort()
+    for expiry_ms in expiry_list:
+        expiry_dt = gmtime(expiry_ms)
+        expiry_dt_iso = strftime("%Y-%m-%d", expiry_dt)
+        logger.info("Fetches chain data for %d - %s" % (expiry_ms, expiry_dt_iso))
+        for attempt in range(3):
+            try:
+                chain_data = get_option_chain(symbol, expiry_ms)
+                out += chain_data
+            except:
+                logger.warn("Attempt %d failed to fetch chain data, wait..." % (attempt+1))
+                time.sleep(10)
+            else:
+                break
+        else:
+            logger.error("Failed to fetch chain data for %d - %s" % (expiry_ms, expiry_dt_iso))
+            exit(1)
+
     file.write(out)
+    file.flush()
 
 
 def save_symbol_data_by_filename(symbol, filename):
@@ -145,11 +177,13 @@ def save_symbol_data_by_filename(symbol, filename):
     with open(filename, 'w') as f:
         save_symbol_data(symbol, f)
         f.close()
+    logger.info("Data saved to %s" % filename)
 
 
 def headings():
     return ['ROW', 'TRADE_DT', 'EXPR_DT', 'UNDL_PRC', 'PC', 'STRK_PRC',
-            'OPT_SYMBOL', 'LAST', 'L_BID', 'L_ASK', 'CHANGE', 'PCT_CHANGE', 'VOL', 'OIT', 'IVOL']
+            'OPT_SYMBOL', 'LAST', 'L_BID', 'L_ASK', 'CHANGE', 'PCT_CHANGE',
+            'VOL', 'OIT', 'IVOL']
 
 
 def usage():
