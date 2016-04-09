@@ -103,7 +103,7 @@ def parse_tr_row(row, row_id, symbol2, price):
     data['PCT_CHANGE'] = "%4.2f" % p2f(row[6])
     data['VOL'] = row[7]
     data['OIT'] = row[8]
-    data['IVOL'] = "%4.2f" % p2f(row[9])
+    data['IVOL'] = "%6.4f" % p2f(row[9])
 
     out = ','.join([data[k] for k in headings()]) + "\n"
     return out
