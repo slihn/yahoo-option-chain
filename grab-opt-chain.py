@@ -9,6 +9,7 @@ import logging
 import sys
 import time
 from os import path
+import traceback
 
 
 logger = logging.getLogger(__name__)
@@ -47,10 +48,18 @@ def get_options_menu(symbol: str, dt: int=None):
 def get_option_chain(symbol: str, expiry_ms: int=None):
     tree = fetch_from_yahoo(symbol, expiry_ms)
     # <span id="yfs_l84_^XDE" data-sq="^XDE:value">109.00</span>
-    value_elem = tree.find(".//span[@data-sq='%s:value']" % symbol)
-    assert symbol in value_elem.get("id"), "Failed to locate price element"
-    symbol2 = symbol.strip('^')
+    # but for ^SPX, it is <span id="yfs_l84_^GSPC" data-sq="^GSPC:value">2,040.04</span>
+
+    value_symbol = symbol
+    if symbol == "^SPX":
+        value_symbol = "^GSPC"
+
+    value_elem = tree.find(".//span[@data-sq='%s:value']" % value_symbol)
+    assert value_elem is not None, "Failed to locate span block for price element"
+    assert value_symbol in value_elem.get("id"), "Failed to assert symbol in price element"
+
     price = value_elem.text  # UNDL_PRC
+    symbol2 = symbol.strip('^')
 
     # <div id="quote-table">
     quote_table = tree.find(".//div[@id='quote-table']")
@@ -83,11 +92,18 @@ def parse_tr_row(row, row_id, symbol2, price):
     # 8: Open Interest, 9: Implied Volatility
 
     data = dict()
-    ls = len(symbol2)
     contract = row[1]  # Contract Name
+
+    # for SPX, it could be SPXW too
+    if symbol2 == "SPX" and contract.startswith("SPXW"):
+        symbol2 = "SPXW"
+        logger.warn("SPX variant Detected in contract: %s" % contract)
+
+    ls = len(symbol2)
+
     put_call = contract[ls+6]
     assert symbol2 == contract[0:ls], "contract prefix is not symbol: %s vs %s" % (symbol2, contract)
-    assert put_call == "P" or put_call == "C", "put_call is not P,C: %s" % put_call
+    assert put_call == "P" or put_call == "C", "put_call is not P,C: %s from contract: %s" % (put_call, contract)
 
     data['ROW'] = "%d" % row_id
     data['TRADE_DT'] = time.strftime("%Y%m%d")
@@ -124,7 +140,7 @@ def fetch_from_yahoo(symbol, expiry_ms):
     res.close()
 
     tree = html.fromstring(content)
-    logger.debug("Html content is parsed")
+    logger.debug("Html content is parsed into tree")
 
     return tree
 
@@ -157,6 +173,9 @@ def save_symbol_data(symbol, file):
                 chain_data = get_option_chain(symbol, expiry_ms)
                 out += chain_data
             except:
+                exc_info = sys.exc_info()
+                err_str = traceback.format_exception(*exc_info)
+                logger.error("Error encountered: %s" % err_str)
                 logger.warn("Attempt %d failed to fetch chain data, wait..." % (attempt+1))
                 time.sleep(10)
             else:
