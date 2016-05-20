@@ -58,7 +58,7 @@ def get_option_chain(symbol: str, expiry_ms: int=None):
     assert value_elem is not None, "Failed to locate span block for price element"
     assert value_symbol in value_elem.get("id"), "Failed to assert symbol in price element"
 
-    price = value_elem.text  # UNDL_PRC
+    price = value_elem.text.replace(',', '')  # UNDL_PRC
     symbol2 = symbol.strip('^')
 
     # <div id="quote-table">
@@ -110,12 +110,12 @@ def parse_tr_row(row, row_id, symbol2, price):
     data['EXPR_DT'] = "20%s" % contract[ls:ls+6]
     data['UNDL_PRC'] = price
     data['PC'] = put_call
-    data['STRK_PRC'] = row[0]
+    data['STRK_PRC'] = row[0].replace(',', '')
     data['OPT_SYMBOL'] = contract
-    data['LAST'] = row[2]
-    data['L_BID'] = row[3]
-    data['L_ASK'] = row[4]
-    data['CHANGE'] = row[5]
+    data['LAST'] = row[2].replace(',', '')
+    data['L_BID'] = row[3].replace(',', '')
+    data['L_ASK'] = row[4].replace(',', '')
+    data['CHANGE'] = row[5].replace(',', '')
     data['PCT_CHANGE'] = "%4.2f" % p2f(row[6])
     data['VOL'] = row[7]
     data['OIT'] = row[8]
@@ -126,7 +126,7 @@ def parse_tr_row(row, row_id, symbol2, price):
 
 
 def p2f(x):
-    return float(x.strip('%'))/100
+    return float(x.strip('%').replace(',', ''))/100
 
 
 def fetch_from_yahoo(symbol, expiry_ms):
